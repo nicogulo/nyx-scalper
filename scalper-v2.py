@@ -82,6 +82,7 @@ DATA_WS_MARKET = LIVE_WS_MARKET   # WS for kline streams
 TAKER_FEE = float(os.environ.get("SCALPER_TAKER_FEE", "0.0005"))   # 0.05% per trade
 TOTAL_FEE_PCT = TAKER_FEE * 2  # 0.10% of notional per round-trip
 MIN_NET_TP_MARGIN_PCT = float(os.environ.get("SCALPER_MIN_NET_TP_PCT", "0.01"))  # 1% of margin minimum (scalping: smaller targets)
+MIN_BALANCE_USDT = float(os.environ.get("SCALPER_MIN_BALANCE", "10"))  # skip trading below this balance
 
 # ── Risk & Timing (env-tunable) ─────────────────────────────────────────────
 SIGNAL_COOLDOWN_SEC = int(os.environ.get("SCALPER_SIGNAL_COOLDOWN_SEC", "900"))      # 15min between same-symbol signals
@@ -117,6 +118,7 @@ depth_cache = {}    # {symbol: {bids: [], asks: []}}
 active_positions = {}  # {symbol: {side, entry, size, sl, tp, sl_algo_id, tp_algo_id, highest_pnl_pct, entry_time}}
 recently_closed = {}   # {symbol: {ap_data, close_ts}} — grace period buffer for race condition
 signal_cooldown = {}   # {symbol: timestamp} — prevent duplicate signals
+_processed_orders = set()  # track processed orderIds to prevent duplicate close fills
 _learning_config_cache = {"data": None, "mtime": 0}
 
 
@@ -813,6 +815,16 @@ async def on_order_update(order):
     log.info(f"ORDER UPDATE: {symbol} {side} {qty} @ {price} status={status} type={order_type} pnl={pnl} reduce={reduce_only}")
     log_event("ORDER_UPDATE", {"symbol": symbol, "side": side, "price": price, "qty": qty, "status": status, "type": order_type, "pnl": pnl, "order_id": order_id, "reduce_only": reduce_only})
 
+    # Dedup: skip if we already processed this orderId (Binance can send dupes)
+    if order_id in _processed_orders:
+        log.info(f"Duplicate order update skipped: {order_id}")
+        return
+    _processed_orders.add(order_id)
+    # Prevent unbounded growth: keep only last 200 orders
+    if len(_processed_orders) > 200:
+        _processed_orders.clear()
+        _processed_orders.add(order_id)
+
     if status == "FILLED":
         state = load_state()
         state = reset_daily(state)
@@ -1280,6 +1292,11 @@ async def check_scalp_entry(symbol):
         log.warning("Daily loss limit")
         return
 
+    # Min balance gate — skip trading if account too small (fees eat everything)
+    if bal < MIN_BALANCE_USDT:
+        log.warning(f"Balance ${bal:.2f} < min ${MIN_BALANCE_USDT:.2f} — skipping (fees dominate at small size)")
+        return
+
     # ── Get adaptive parameters from regime engine ──
     ap = get_params(symbol)
     regime = get_regime(symbol)
@@ -1379,7 +1396,7 @@ async def check_scalp_entry(symbol):
     rsi_short_min = ap.get("rsi_short_min", 45)  # Scalping: wider window
     allow_long = ap.get("allow_long", True)
     allow_short = ap.get("allow_short", True)
-    conf_min = ap.get("confidence_min", "C2")     # Scalping: allow C2
+    conf_min = ap.get("confidence_min", "C3")     # Default C3 (was C2 — C2 too noisy)
     risk_mult = ap.get("risk_multiplier", 1.0)
 
     # Pair blacklist now sourced from adaptive-config.json `disabled` list
@@ -1736,7 +1753,16 @@ async def check_scalp_entry(symbol):
     qty = round(qty, info["quantityPrecision"])
     notional = qty * current_price
 
+    # minNotional guard: if exchange min exceeds our intended size, SKIP (don't upscale)
+    # Previously bot inflated notional to meet minNotional, causing oversized positions
+    max_allowed_notional = avail * SIZE_PCT * risk_mult * c2_size_mult * LEVERAGE * 1.05  # 5% tolerance
     if notional < info["minNotional"]:
+        if info["minNotional"] > max_allowed_notional:
+            log.warning(
+                f"{symbol}: minNotional ${info['minNotional']:.2f} > max allowed ${max_allowed_notional:.2f} "
+                f"(avail=${avail:.2f} size={SIZE_PCT:.0%} lev={LEVERAGE}x) — skipping to avoid oversized position"
+            )
+            return
         qty = math.ceil(info["minNotional"] / current_price / step) * step
         qty = round(qty, info["quantityPrecision"])
         notional = qty * current_price
@@ -1754,9 +1780,16 @@ async def check_scalp_entry(symbol):
         qty = round(qty, info["quantityPrecision"])
         notional = qty * current_price
 
-    # ── TP/SL (adaptive from regime) ──
+    # ── TP/SL (adaptive from regime + fee-aware) ──
     adaptive_tp = ap.get("tp_pct", TP_PCT)
     adaptive_sl = ap.get("sl_pct", SL_PCT)
+
+    # Fee-aware TP floor: TP must be at least 3x round-trip fees to be profitable
+    # e.g. fee 0.10% round-trip → TP must be ≥ 0.30% to net positive after fees
+    fee_tp_floor = TOTAL_FEE_PCT * 3  # 3x fee = minimum viable TP
+    if adaptive_tp < fee_tp_floor:
+        log.info(f"{symbol}: Adaptive TP {adaptive_tp*100:.2f}% < fee floor {fee_tp_floor*100:.2f}% — raising TP")
+        adaptive_tp = fee_tp_floor
     tick_size = info.get("tickSize", 0.01)
     def round_price(p):
         """Round price to nearest tick."""
