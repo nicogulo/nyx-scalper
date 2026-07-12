@@ -1,6 +1,6 @@
 # Nyx Scalper
 
-Binance USDT-M Futures scalping bot with WebSocket real-time data, multi-strategy signal detection, adaptive market regime engine, and ML-based learning loop.
+Binance USDT-M Futures scalping bot with WebSocket real-time data, multi-strategy signal detection, adaptive market regime engine, and ML-based learning loop. Designed to run as an [OpenClaw](https://github.com/nicogulo/openclaw) Telegram bot — alerts, monitoring, and control via Telegram chat.
 
 > ⚠️ **Disclaimer:** Trading futures with leverage carries significant risk. This software is for educational purposes. Backtest thoroughly on testnet first. You can lose money. Not financial advice.
 
@@ -14,7 +14,7 @@ Binance USDT-M Futures scalping bot with WebSocket real-time data, multi-strateg
 - **Learning engine** — nightly job analyzes trade history, outputs adaptive config (per-pair weights, blacklists, confidence floors)
 - **Partial TP 50/50** — TP1 at half target (moves SL to breakeven), TP2 at full target
 - **Risk management** — daily loss limit circuit breaker, consecutive loss cooldown, trailing stops, tiered position timeout (soft/hard)
-- **Telegram alerts** — entry, TP, SL, close notifications
+- **OpenClaw Telegram integration** — alerts, monitoring, and control via Telegram bot (entry, TP, SL, close notifications, daily reports)
 - **Dashboard API** — lightweight HTTP server for external dashboard integration
 - **Testnet + Live** — hybrid mode: live market data for signals, testnet or live for execution
 
@@ -271,6 +271,26 @@ MIT — see [LICENSE](LICENSE).
 ## Contributing
 
 PRs welcome. For major changes, open an issue first.
+
+---
+
+## OpenClaw Telegram Integration
+
+This bot designed to run with [OpenClaw](https://github.com/nicogulo/openclaw) — AI agent gateway for Telegram.
+
+- **Alerts** — entry, TP/SL hit, close, regime change → Telegram chat
+- **Monitoring** — signal monitor cron checks bot health every 5 min
+- **Daily reports** — automated daily PnL summary to Telegram
+- **Control** — close-all, pause pair, adjust config via chat commands
+
+Set up:
+
+```bash
+export TELEGRAM_BOT_TOKEN=your_bot_token
+export TELEGRAM_CHAT_ID=your_chat_id
+```
+
+Without these, bot runs silently (alerts skipped).
 
 ---
 
