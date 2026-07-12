@@ -3,6 +3,15 @@
 Binance USDT-M Futures scalping bot with WebSocket real-time data, multi-strategy signal detection, adaptive market regime engine, and ML-based learning loop. Designed to run as an [OpenClaw](https://github.com/nicogulo/openclaw) Telegram bot — alerts, monitoring, and control via Telegram chat.
 
 > ⚠️ **Disclaimer:** Trading futures with leverage carries significant risk. This software is for educational purposes. Backtest thoroughly on testnet first. You can lose money. Not financial advice.
+>
+> ❗ **IMPORTANT — Read before using:**
+>
+> - **Bot bisa salah.** Sinyal entry/exit tidak 100% akurat. Strategi dapat menghasilkan loss berturut-turut.
+> - **Futures trading berisiko tinggi.** Leverage 20x berarti 5% price move melawan posisi = likuidasi total.
+> - **Pengembang tidak bertanggung jawab atas kerugian.** Anda menggunakan bot ini atas tanggung jawab Anda sendiri.
+> - **Selalu test di testnet terlebih dahulu.** Jangan langsung main di live mode dengan modal besar.
+> - **Kelola ukuran posisi dengan bijak.** Jangan gunakan uang yang Anda tidak mampu kehilangan.
+> - **Pantau bot secara berkala.** Bot membutuhkan monitoring — bukan set-and-forget.
 
 ---
 
@@ -270,7 +279,29 @@ MIT — see [LICENSE](LICENSE).
 
 ## Contributing
 
-PRs welcome. For major changes, open an issue first.
+Project ini **open source** — bantuan untuk improve sangat diterima!
+
+### Cara berkontribusi:
+
+1. **Fork** repo ini
+2. **Buat branch** untuk fitur/fix: `git checkout -b fix/bug-name`
+3. **Test di testnet** sebelum submit PR
+4. **Open Pull Request** dengan deskripsi jelas
+
+### Area yang butuh improvement:
+
+- 🧠 **Backtesting framework** — historical data replay untuk validasi strategi
+- 📊 **Performance analytics** — dashboard yang lebih lengkap (equity curve, drawdown, Sharpe ratio)
+- 🔍 **Strategy optimization** — parameter tuning, walk-forward analysis
+- 🛡️ **Risk management** — dynamic position sizing, Kelly criterion, VaR limits
+- 🌐 **Multi-exchange support** — Bybit, OKX, dkk
+- 📱 **Mobile dashboard** — PWA atau React Native app
+- 🧪 **Test coverage** — unit tests, integration tests
+- 📖 **Documentation** — strategy guides, deployment tutorials
+
+Untuk perubahan besar, buka **issue** dulu untuk diskusi.
+
+Lihat [issues](https://github.com/nicogulo/nyx-scalper/issues) untuk ide.
 
 ---
 
