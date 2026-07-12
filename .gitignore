@@ -1,0 +1,20 @@
+# Env
+.env.scalper
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Backups
+*.bak
+*.bak.*
+
+# Runtime data
+logs/
+state/
+
+# OS
+.DS_Store
+Thumbs.db
